@@ -1,0 +1,68 @@
+apply plugin: 'java-library'
+apply plugin: 'jacoco'
+
+base.archivesName = name.toLowerCase()
+
+repositories {
+  mavenLocal()
+  mavenCentral()
+}
+
+dependencies {
+  implementation libs.slf4j.api
+
+  compileOnly libs.jakarta.annotation
+  testCompileOnly libs.jakarta.annotation
+
+  testImplementation libs.junit.jupiter.api
+  testImplementation libs.junit.jupiter.params
+  testImplementation libs.junit.jupiter.engine
+  // The JUnit Platform launcher must match the engine version; Gradle's bundled
+  // launcher is older and fails test discovery ("OutputDirectoryCreator not
+  // available") against JUnit 6.x.
+  testRuntimeOnly "org.junit.platform:junit-platform-launcher:${libs.versions.junit.get()}"
+
+  testImplementation libs.hamcrest
+  testImplementation libs.mockito
+  testImplementation libs.assertj
+
+  testRuntimeOnly libs.slf4j.simple
+}
+
+compileJava {
+  options.release = 21
+  options.compilerArgs << "-Xlint:all"
+  options.compilerArgs << "-Xlint:-serial"
+}
+
+compileTestJava {
+  options.release = 21
+  options.compilerArgs << "-Xlint:all"
+  options.compilerArgs << "-Xlint:-serial"
+}
+
+javadoc.options.addBooleanOption('Xdoclint:none', true)
+
+task sourcesJar(type: Jar, dependsOn: classes, description: 'Creates a jar from the source files.') {
+  archiveClassifier = 'sources'
+  from sourceSets.main.allSource
+}
+
+test {
+  useJUnitPlatform()
+  // ignoreFailures = true
+  systemProperties.put("java.awt.headless", "true")
+  systemProperties.put("fms.mapf.debounceMs", System.getProperty("fms.mapf.debounceMs", "1000"))
+  systemProperties.put("fms.mapf.commitMs", System.getProperty("fms.mapf.commitMs", "3500"))
+  systemProperties.put("fms.mapf.constraintWeightOrder",
+      System.getProperty("fms.mapf.constraintWeightOrder", "true"))
+  System.properties.findAll { it.key.toString().startsWith("fms.") }
+      .each { systemProperties.put(it.key.toString(), it.value.toString()) }
+}
+
+ext {
+  // Attributes for the AsciiDoc documentation to include code from source files
+  javaSrcDir = sourceSets.main.java.srcDirs[0]
+  javaClassesDir = sourceSets.main.output.classesDirs
+  testSrcDir = sourceSets.test.java.srcDirs[0]
+}

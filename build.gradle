@@ -1,0 +1,110 @@
+buildscript {
+  repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+      url "https://plugins.gradle.org/m2/"
+    }
+  }
+}
+
+plugins {
+  alias(libs.plugins.jacocolog)
+}
+
+apply plugin: 'base'
+apply plugin: 'distribution'
+
+
+apply from: "${rootDir}/gradle/common.gradle"
+apply from: "${rootDir}/gradle/publishing-common.gradle"
+
+subprojects {
+  apply from: rootProject.file('gradle/common.gradle')
+}
+
+distributions {
+  main {
+    contents.from {
+      project(':opentcs-FMS-kernel').ext.collectableDistDir
+    }
+    contents.from {
+      project(':opentcs-FMS-kernelcontrolcenter').ext.collectableDistDir
+    }
+    contents.from {
+      project(':opentcs-FMS-modeleditor').ext.collectableDistDir
+    }
+    contents.from {
+      project(':opentcs-FMS-operationsdesk').ext.collectableDistDir
+    }
+    contents.from {
+      project(':opentcs-FMS-documentation').ext.collectableDistDir
+    }
+  }
+}
+
+task subDists {
+  dependsOn(':opentcs-FMS-kernel:installDist')
+  dependsOn(':opentcs-FMS-kernelcontrolcenter:installDist')
+  dependsOn(':opentcs-FMS-modeleditor:installDist')
+  dependsOn(':opentcs-FMS-operationsdesk:installDist')
+  dependsOn(':opentcs-FMS-documentation:installDist')
+}
+
+installDist.dependsOn subDists
+
+distZip {
+  archiveClassifier = 'bin'
+  dependsOn subDists
+}
+
+distTar {
+  enabled = false
+  archiveClassifier = 'bin'
+  dependsOn subDists
+}
+
+task distSrcZip(type: Zip) {
+  archiveClassifier = 'src'
+  from "${rootDir}"
+
+  includes << 'config/**'
+  includes << 'gradle/**'
+  includes << 'lib/**'
+  includes << 'opentcs-*/**'
+  includes << 'src/**'
+  includes << '.nb-gradle-properties'
+  includes << '*.gradle'
+  includes << 'gradlew'
+  includes << 'gradlew.bat'
+  includes << 'README.md'
+
+  excludes << '.gradle'
+  excludes << '**/build'
+}
+
+artifacts {
+  archives distZip
+  archives distTar
+  archives distSrcZip
+}
+
+build {
+  subprojects.each { dependsOn("${it.name}:build") }
+  dependsOn installDist
+}
+
+subprojects.each { publish.dependsOn("${it.name}:publish") }
+
+publishing {
+  publications {
+    maven(MavenPublication) {
+      artifact distZip
+      artifact distSrcZip
+
+      pom {
+        artifactId = 'distribution'
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+rootProject.name = 'opentcs-FMS'
+
+include 'opentcs-FMS-common'
+include 'opentcs-FMS-documentation'
+include 'opentcs-FMS-kernel'
+include 'opentcs-FMS-kernelcontrolcenter'
+include 'opentcs-FMS-modeleditor'
+include 'opentcs-FMS-operationsdesk'

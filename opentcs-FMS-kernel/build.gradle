@@ -1,0 +1,94 @@
+apply from: "${rootDir}/gradle/java-project.gradle"
+apply from: "${rootDir}/gradle/java-artifacts.gradle"
+apply from: "${rootDir}/gradle/java-codequality.gradle"
+apply from: "${rootDir}/gradle/guice-application.gradle"
+apply from: "${rootDir}/gradle/publishing-java.gradle"
+
+if (!hasProperty('mainClass')) {
+  ext.mainClass = 'org.opentcs.kernel.RunKernel'
+}
+application.mainClass = ext.mainClass
+
+ext.collectableDistDir = new File(buildDir, 'install')
+
+configurations {
+  kernelJar
+}
+
+dependencies {
+  implementation libs.opentcs.kernel
+  implementation libs.opentcs.commadapter.vda5050
+  kernelJar group: 'org.opentcs', name: 'opentcs-kernel', version: libs.versions.opentcs.baseline.get(), ext: 'jar'
+}
+
+distributions {
+  main {
+    contents {
+      from (zipTree(configurations.kernelJar.singleFile)) {
+        include 'org/opentcs/kernel/distribution/**'
+
+        eachFile { file ->
+          // Remove the top-level folders. We only want the content of '/distribution'
+          file.path = file.path.replaceFirst("(.*)/distribution", "")
+        }
+
+        includeEmptyDirs false
+      }
+      from "${sourceSets.main.resources.srcDirs[0]}/org/opentcs/fms/kernel/distribution"
+    }
+  }
+}
+
+// The custom distribution above populates the install dir with the openTCS base
+// distribution, which Gradle's Sync no longer recognises as "its own" install on
+// a re-run — so a second installDist fails with "neither empty nor ... an
+// installation". The dir must be fully EMPTY for the check to pass, but we want
+// to keep runtime state (the loaded plant model under data/). So: move data/
+// aside, wipe the dir, let installDist repopulate it, then move data/ back.
+// (The kernel must be stopped first, else the jar under lib/ is locked.)
+ext.installDataStash = new File(buildDir, "tmp/install-data-stash")
+installDist.doFirst {
+  def installDir = new File(buildDir, "install/${project.name}")
+  def dataDir = new File(installDir, "data")
+  if (dataDir.exists()) {
+    delete installDataStash
+    installDataStash.parentFile.mkdirs()
+    ant.move(file: dataDir, tofile: installDataStash)
+  }
+  delete installDir
+}
+installDist.doLast {
+  def dataDir = new File(buildDir, "install/${project.name}/data")
+  if (installDataStash.exists()) {
+    ant.move(file: installDataStash, tofile: dataDir)
+  }
+}
+
+test {
+  maxParallelForks = Math.min(4, Runtime.runtime.availableProcessors())
+  systemProperty 'fms.pibt.footprint', System.getProperty('fms.pibt.footprint', 'true')
+  systemProperty 'fms.pibt.clearanceMm', System.getProperty('fms.pibt.clearanceMm', '50')
+  systemProperty 'fms.mapf.lacam2LoopLimit',
+      System.getProperty('fms.mapf.lacam2LoopLimit', '48000')
+  systemProperty 'fms.pibt.laneBreak', System.getProperty('fms.pibt.laneBreak', 'true')
+  systemProperty 'fms.pibt.swap', System.getProperty('fms.pibt.swap', 'true')
+  systemProperty 'fms.guide.restingBodyTicks',
+      System.getProperty('fms.guide.restingBodyTicks', '2')
+}
+
+startScripts.enabled = false
+
+task release {
+  dependsOn build
+  dependsOn installDist
+}
+
+run {
+  systemProperties(['java.util.logging.config.file':'./config/logging.config',\
+                    'opentcs.base':'.',\
+                    'opentcs.home':'.',\
+                    'opentcs.cfg4j.reload.interval':'10000',\
+                    'opentcs.configuration.reload.interval':'10000',\
+                    'opentcs.configuration.provider':'gestalt'])
+  jvmArgs('-XX:-OmitStackTraceInFastThrow')
+}

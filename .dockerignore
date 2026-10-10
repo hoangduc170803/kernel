@@ -1,0 +1,7 @@
+.git
+.gitnexus
+.gradle
+.claude
+**/build
+**/bin
+**/*.log

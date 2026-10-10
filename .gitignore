@@ -1,0 +1,33 @@
+.gradle/
+build/
+**/build/
+out/
+
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+bin/
+target/
+
+*.log
+hs_err_pid*
+replay_pid*
+
+.DS_Store
+Thumbs.db
+
+# docs stay local — not pushed (files already tracked stay tracked)
+report/
+*.md
+!README.md
+
+# Runtime output (kernel logs, MAPF dumps, lock files)
+opentcs-FMS-kernel/log/
+**/mapf-capture/
+*.log.*
+*.lck
+.runtime/
+**/log/mapf-capture/
